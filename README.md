@@ -772,7 +772,7 @@ $$
 定义零相位方向和当前靶心方向，相位为
 
 $$
-\theta=\operatorname{atan2}
+\theta=\mathrm{atan2}
 \left(\mathbf{n}^{\mathsf T}(\mathbf{u}_0\times\mathbf{u}),
 \mathbf{u}_0^{\mathsf T}\mathbf{u}\right).
 $$
@@ -797,7 +797,7 @@ $$
 
 $$
 \theta_k^{\mathrm{cont}}=\theta_{k-1}^{\mathrm{cont}}
-+\operatorname{wrap}_{[-\pi,\pi)}(\theta_k-\theta_{k-1})
++\mathrm{wrap}_{[-\pi,\pi)}(\theta_k-\theta_{k-1})
 $$
 
 得到连续相位。当目标切换到相邻符叶时，跳变量不是普通的 $2\pi$ 周期跳变，而是五等分
@@ -814,7 +814,7 @@ $$
 P_k^- &= P_{k-1}+Q\Delta t^2,\\
 K_k &= \frac{P_k^-}{P_k^-+R},\\
 \hat\theta_k &= \hat\theta_k^-+K_k\,
-\operatorname{wrap}_{[-\pi,\pi)}(z_k-\hat\theta_k^-).
+\mathrm{wrap}_{[-\pi,\pi)}(z_k-\hat\theta_k^-).
 \end{aligned}
 $$
 
