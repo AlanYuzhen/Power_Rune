@@ -1,0 +1,248 @@
+// 打符配置示例。此文件是 JSONC，仅用于阅读和调参说明；运行时请复制其键和值到 config/power_rune.json。
+// 除明确标注外，时间单位均为 s，角度单位均为 rad。
+{
+  "camera": 
+  {
+    // 输入图像分辨率；需与相机标定参数、实际输入图像一致。
+    "width": 1440,
+    "height": 1080,
+
+    "cam": 
+    {
+      // OpenCV 3×3 相机内参矩阵 K，data 按行主序：fx, 0, cx, 0, fy, cy, 0, 0, 1。
+      "type_id": "opencv-matrix",
+      "rows": 3,
+      "cols": 3,
+      "dt": "d",
+      "data": [2334.5, 0.0, 737.1498, 0.0, 2330.6, 597.3570, 0.0, 0.0, 1.0]
+    },
+
+    "dis": 
+    {
+      // OpenCV 畸变系数 [k1, k2, p1, p2, k3]。
+      "type_id": "opencv-matrix",
+      "rows": 1,
+      "cols": 5,
+      "dt": "d",
+      "data": [-0.0747, 0.3078, -0.0014, 0.0005, 0.0]
+    }
+  },
+
+  "detect": 
+  {
+    // 网络关键点拟合的旋转框扩大倍率，用于截取后续传统视觉处理区域。
+    "extand_rotated_rect": 1.4
+  },
+
+  "feature_extract": 
+  {
+    // ROI 二值化的颜色差阈值；红方目标使用 red-blue，蓝方目标使用 blue-red。
+    "red_minus_blue2bin_threshold": 60,
+    "blue_minus_red2bin_threshold": 62
+  },
+
+  "feature_constrain": 
+  {
+    // 候选装甲板轮廓面积相对网络框面积的最大误差。
+    "armor_module_area_relative_error_threshold": 0.35,
+    // 判断灯臂连线是否穿过轮廓时的采样点数,太低了在大角度打符的时候会识别不到灯臂，一般设置到30以上即可。
+    "light_arm_line_samples": 30
+  },
+
+  "contour_descriptor": 
+  {
+    // 椭圆形灯臂轮廓的最小 solidity（面积/凸包面积）。
+    "solidity_threshold_ellipse": 0.8,
+    // 矩形装甲板轮廓的最小 solidity。
+    "solidity_threshold_rectangular": 0.66,
+    // 装甲板轮廓的期望长宽比及允许相对误差。
+    "expect_aspect_ratio": 5.0,
+    "approx_error_tolerance": 0.01,
+    "aspect_ratio_relative_error_threshold": 0.42
+  },
+
+  "project": 
+  {
+    // 预分配投影缓存及边界裁剪使用的最大图像尺寸；需不小于实际输入，可大于实际输入但是会浪费存储。
+    "max_img_width": 1440,
+    "max_img_hight": 1080,
+    // 轮廓/模型点采样步长；更小更精细，但投影优化更慢，实际上大部分时候4倍下采样和不下采样几乎一致。
+    "sample_stride": 2,
+    // 距离变换 ROI 相对网络区域的放大倍率。
+    "distance_transform_roi_scale": 1.3,
+    // 锚点重投影残差的权重。
+    "anchor_reproj_weight": 7.0,
+    // Chamfer 距离残差上限，单位为像素，用于抑制离群点。
+    "max_chamfer_residual": 50.0,
+    // 符平面法向量 y 方向约束的总权重。
+    "k_axis_y_constraint_weight_total": 500,
+    // 大符两片未激活符叶扇区匹配容差，单位 rad。
+    "half_interval": 0.5235987756
+  },
+
+  "plane": 
+  {
+    // 估计符平面所需的最少点集数量，设置为1发现实时性是最好的。
+    "min_plane_points_window_size": 1
+  },
+
+  
+
+  "small_phase_estimate": 
+  {
+    // 相邻观测允许的最大时间间隔；超出后小符相位滤波器重置。
+    "max_data_interval": 0.1,
+    // 相邻帧间隔超过此值时，认为跟踪中断并重新初始化（每三分钟重置一次，即比赛准备阶段一定能重置）。
+    "prepare_time": 180,
+    // 确认旋转方向前所需的最少观测数。
+    "min_size_to_confirm_rotation": 20,
+    // 相位跳变阈值；超出则认为可能切换了符叶。
+    "target_switch_threshold": 0.87,
+    // 小符相位滤波窗口的最少观测数，这个值不建议超过5,不然小符容易频繁掉追踪。
+    "min_size_to_filter": 2,
+    // 小符期望角速度，用于初始化与异常跳变判断，单位 rad/s。
+    "expect_angular_velocity": 1.0472,
+    // 相邻相位差允许范围的放大系数。
+    "angular_tolerance_factor": 3.0,
+    // 小符一维卡尔曼滤波器的初始协方差、过程噪声和观测噪声。
+    "P_init": 1.0,
+    "Q_base": 1.0,
+    "R_base": 0.025
+  },
+
+  "big_phase_motion_estimate": 
+  {
+    // 超过这个值认为目标丢失，运动方程会重置。这个值可以避免运动方程被污染后不好恢复，被污染一般是因为符被频繁遮挡
+    "max_time_interval": 3.0,
+    // 大符相邻观测中断阈值；超过 prepare_time 会同时清空旋向与历史，也是恰好为准备时间。
+    "prepare_time": 180,
+    // 大符历史观测窗口长度，用于运动方程拟合，太大容易实时性不足，太小会导致拟合的不好。
+    "window_settling_time": 8.0,
+    // 建立或更新大符运动方程所需的最少观测数。
+    "min_data_size_to_build_motion_model": 100,
+    // 参与旋向判定的相邻帧最大时间间隔；太大容易导致运动方程被污染，太小可能会导致无数据用来拟合。
+    "acceptable_time_interval_to_confirm_rotation": 0.15,
+    // 大符目标切换的相位差阈值，单位 rad。
+    "target_switch_threshold": 0.77,
+    // 大符尚未建立运动模型时使用的线性相位速度，单位 rad/s。
+    "expect_phase_linear_velocity": 1.1775,
+    // 拟合时最旧/最新数据的时间权重端点。
+    "highest_time_weight": 1.0,
+    "lowwest_time_weight": 0.2,
+    "filter_window_size": 7,
+
+    // 初始运动方程：phase=A*cos(ωt)+B*sin(ωt)+b*t+C。
+    "speed_angular_frequency_init": 1.942,
+    "phase_cos_coefficient_init": -0.3322528,
+    "phase_sin_coefficient_init": 0.3322528,
+    "phase_linear_velocity_init": 1.1775,
+    "phase_constant_offset_radians_init": 0,
+
+    // 非线性拟合中 ω 的边界与迭代/鲁棒损失控制参数。
+    "omega_lower_bound": 1.884,
+    "omega_upper_bound": 2.000,
+    "outer_max_iterations": 20,
+    "inner_max_iterations": 40,
+    "robust_scale_factor": 2.5,
+    "inner_tolerance": 1e-2,
+
+    // LM 阻尼系数、收敛阈值和数值微分步长。
+    "lambda_init": 1e-2,
+    "lambda_min": 1e-6,
+    "lambda_max": 1e6,
+    "outer_tolerance": 1e-5,
+    "max_omega_step": 0.05,
+    "diff_eps_min": 1e-4,
+    "diff_eps_rel_init": 1e-3
+  },
+
+  "temp": 
+  {
+    // 目标数据超过此年龄后开始将云台指向平滑恢复到符心，太大可能会鞭尸，太小会导致频繁丢失目标。
+    "data_life": 0.2,
+    // 上述恢复过程的持续时间，太大会导致恢复的过慢，太小会导致复位不平滑。
+    "recover_time": 0.3
+  },
+
+  "small_rune_decision_module": 
+  {
+    // 同一目标最长连续追踪时间；超出后停止正常弹道解算。
+    "max_life_time": 5.7,
+    // 小符目标切换的相位差阈值，单位 rad。
+    "target_switch_threshold": 0.30,
+    // 这个值貌似是设计上的失误，没有什么意义
+    "critical_timeout": 5.0,
+    // 新发现或切换目标后的初始禁射时间，太小会导致云台在超调时就开火，太大会导致射频过低。
+    "fire_cooldown_time": 0.7,
+    // 单次允许连续开火的最长时间，随后进入 fire_cooldown_time 冷却，太大会双发，太小会不开火。
+    "fire_remaining_time_threshold": 0.04
+  },
+
+  "big_rune_decision_module": 
+  {
+    // 大符的目标寿命、切换判定与开火节奏；含义与 small_rune_decision_module 同名项一致。
+    "max_life_time": 20.0,
+    "target_switch_threshold": 0.30,
+    "critical_timeout": 5.0,
+    "fire_cooldown_time_init": 0.4,
+    "fire_cooldown_time": 0.7,
+    "fire_remaining_time_threshold": 0.04,
+    // 大符出现候选切换后，确认切换所需的连续候选帧数，用于保证追踪的连续性。
+    "switch_confirm_count": 5
+  },
+
+  "rune_ballistic_model": 
+  {
+    // 弹丸空气阻力模型参数：阻力系数、空气密度、迎风面积与弹丸质量。
+    "drag_coefficient": 0.42,
+    "air_density": 1.3,
+    "reference_area": 0.000227,
+    "small_bullet_mass": 0.0032,
+    // 符心到靶心的转动半径，单位 m。
+    "radius": 0.7,
+    // 弹丸初速，单位 m/s。
+    "bullet_flying_speed": 24.5,
+    // 重力加速度，单位 m/s²；键名 grivaty 为既有拼写，不能改名。
+    "flying_time_max": 1.0,
+    // 枪口相对云台旋转中心的枪管长度，单位 m；既有键名不能改名。
+    "magnus_acceleration": 0.0025,
+    // 云台与链路延迟补偿，单位 s。
+    "gimbal_pitch_max": 0.61
+  },
+
+  "offset": 
+  {
+    // yaw和pitch补偿，为了调参方便这里采用角度制。
+    "yaw": 0.5,
+    "pitch": 0
+  },
+
+  "debug": 
+  {
+    // 总开关。为 0 时下列所有可视化与调试输出均关闭。
+    "POWER_RUNE_DEBUG": 0,
+
+    //弹道调试模式，在小符模式下不进行预测
+    "POWER_RUNE_BULLISTIC_DEBUG": 0,
+
+    // 各处理阶段开关：检测、重建、跟踪和火控。
+    "POWER_RUNE_DEBUG_REBUILD": 1,
+    "POWER_RUNE_DEBUG_TRACK": 1,
+    "POWER_RUNE_DEBUG_FIRE": 1,
+
+    // 检测阶段图像可视化：网络关键点、二值图、单符叶图。
+    "POWER_RUNE_DEBUG_DETECT_SHOW_BIN_IMG": 1,
+    "POWER_RUNE_DEBUG_DETECT_SHOW_SINGLE_BLADE_IMG": 1,
+
+    // 重建阶段可视化：重投影图、相机系和车体系的 3D 场景。
+    "POWER_RUNE_DEBUG_REBUILD_3D_CAMERA_FOXGLOVE": 0,
+    "POWER_RUNE_DEBUG_REBUILD_3D_CAR_FOXGLOVE": 1,
+
+    // 跟踪阶段 Foxglove 可视化：平面向量、相位、预测误差。
+    "POWER_RUNE_DEBUG_TRACK_PHASE_FOXGLOVE": 1,
+    "POWER_RUNE_DEBUG_TRACK_PREDICT_ERROR": 1,
+
+    // 火控阶段 Foxglove 可视化：预测靶点与期望 yaw/pitch。
+    "POWER_RUNE_DEBUG_FIRE_EXPECT_YAW_PITCH_FOXGLOVE": 1
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "period_ms": 20,
+  "mode": 3,
+  "my_color": 0,
+  "is_start": 1,
+  "is_ready": 1,
+  "yaw": 0.0,
+  "pitch": 0.0,
+  "roll": 0.0,
+  "yaw_rate_deg_s": 0.0,
+  "pitch_rate_deg_s": 0.0,
+  "roll_rate_deg_s": 0.0
+}

@@ -1,0 +1,8 @@
+{
+  "video": "video/big_rune_demo.mp4",
+  "loop": 1,
+  "replay_speed": 1.0,
+  "eof_pause_ms": 6000,
+  "expected_width": 1440,
+  "expected_height": 1080
+}

@@ -11,6 +11,10 @@ CTestTestfile.cmake
 Makefile
 install_manifest.txt
 
+#参考资料
+/优秀开源示例
+/其他参考数据
+
 # Compiled artifacts
 *.o
 *.obj
