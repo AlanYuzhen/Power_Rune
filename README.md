@@ -10,13 +10,14 @@
   <a href="#3-效果展示">效果展示</a> ·
   <a href="#4-算法原理">算法原理</a> ·
   <a href="#5-目录结构">目录结构</a> ·
-  <a href="#6-接口说明">接口说明</a>
+  <a href="#6-接口说明">接口说明</a> ·
+  <a href="#7-roadmap">Roadmap</a>
 </p>
 
 > [!IMPORTANT]
 > **开源边界：** `src/core/algorithm/power_rune` 是本次算法开源的主体。为便于无硬件复现，
 > 仓库同时提供插件式运行框架、OpenVINO 推理适配器和五关键点模型文件；框架设计与模型训练
-> 并非 `power_rune` 核心算法的一部分，其来源与许可证见第 7、8 节及第三方声明。
+> 并非 `power_rune` 核心算法的一部分，其来源与许可证见第 8、9 节及第三方声明。
 
 <p align="center">
   <img src="./assets/img/cover.png" width="82%" alt="能量机关语义轮廓与三维模型重投影效果">
@@ -29,36 +30,40 @@
 <p align="center"><sub>比赛画面中的能量机关精准打击结果</sub></p>
 
 > **无硬件演示：** 已验证环境为 Ubuntu 22.04、CMake 3.22+ 和 C++20，依赖 OpenCV、
-> OpenVINO 2024+、Eigen3、Sophus、Ceres、Boost 与 glog。运行 `./run_demo.sh` 即可使用
-> 随仓视频、模型和模拟电控数据启动完整链路；无桌面环境使用 `./run_demo.sh --headless`，
-> 按 `Ctrl+C` 退出。
+> OpenVINO 2024、Eigen3、Sophus、Ceres、Boost 与 glog。首次使用先运行
+> `./scripts/setup_ubuntu22.sh` 配置并检查环境，再执行 `./run_demo.sh` 启动随仓视频、模型和
+> 模拟电控数据组成的完整链路；无桌面环境使用 `./run_demo.sh --headless`，按 `Ctrl+C` 退出。
 
 ## 1. 核心亮点
 
-- **语义约束的稠密轮廓观测：** 网络只负责提供五关键点与击打状态，传统视觉再利用这些
-  语义关系筛选装甲模块、灯臂和中心 R 轮廓。相比直接把关键点送入位姿解算，该方法保留了
-  更多边缘信息，同时减少依赖场景阈值的手工规则。
+- **基于网络关键点的语义分割与传统算法结合的轮廓特征提取算法：** 通过网络识别的关键点，
+  对传统算法提取的轮廓进行语义分割，将可利用的特征从离散关键点扩展为带有语义信息的轮廓，
+  从而绕开继续提取关键点作为特征的常规思路。约束所需的特征由网络自动生成，再结合简单的
+  逻辑与约束完成语义分割，在提取更多信息的同时减少大量可调超参数。
 
-- **Chamfer 残差位姿优化：** 先通过 PCA 与 PnP 获得位姿初值，再以非线性非对称距离场
-  构造稠密 Chamfer 残差，并加入锚点重投影与云台姿态软约束。在当前测试条件下，目标距离
-  约 `9 m` 时，水平方向距离抖动约为 `±3 cm`。
+- **基于倒角残差优化和非线性距离场的姿态解算算法：** 首先通过 PCA 与 PnP 获取初始姿态，
+  随后采用倒角残差作为损失函数，使用非线性距离场计算代价，并引入云台姿态进行正则约束。
+  通过充分利用轮廓信息，该方法有效缓解了关键点遮挡和目标部分遮挡造成的解算不稳定，同时
+  提高了解算精度与稳定性；在 `9 m` 处，水平距离抖动控制在 `±3 cm` 内。
 
-- **无约束 LM–IRLS 大符运动拟合：** 外层使用 LM 一维搜索角频率，内层使用 IRLS 联合
-  时间权重与 Cauchy 残差权重求解线性参数。对连续追踪区间的当前统计表明，`0.5 s` 时域的
-  平均相位预测误差约为 `0.02 rad`；按 `0.7 m` 旋转半径折算，弧长误差约为 `1.4 cm`。
-  同一组鲁棒权重参数覆盖了区赛与国赛数据。
+- **无约束 LM–迭代重加权最小二乘拟合算法（LM–IRLS）：** 采用 LM 方法进行高速一维搜索，
+  再使用鲁棒核函数构造代价函数，根据拟合残差与数据时间不断更新数据权重并迭代求解。在不
+  引入额外约束的情况下，模型对 `0.5 s` 后的平均相位预测误差为 `0.02 rad`；`0.5 s` 是赛场上
+  常见的弹丸飞行时间。在无控制误差和机械散布的理想条件下，对应的理论命中弧长误差约为
+  `1.4 cm`。引入鲁棒核函数后，同一组参数实现了区赛与国赛拟合算法的零调参复用。
 
-- **可解释的运动—弹道联合拦截：** 弹丸模型同时考虑水平、竖直方向的二次空气阻力，
-  以及垂直于速度方向的马格努斯项；使用固定步数 RK4 积分，并由 Ceres 联合求解飞行时间、
-  `yaw` 与 `pitch`，使三者对应同一个未来命中事件。
+- **高解释性的弹道模型及拦截方程：** 采用水平、竖直方向的二次空气阻力和垂直于速度方向的
+  马格努斯升力项作为弹丸物理模型，并结合符的运动方程构建拦截方程。算法使用 RK4 积分，
+  调用 Ceres 进行求解；在数值求解测试中，飞行时间的求解误差小于
+  $10^{-9}\,\mathrm{s}$，落点误差小于 $10^{-9}\,\mathrm{m}$。
 
-- **自动火控与安全退化：** 状态机统一管理目标切换、数据超时、初始冷却、连续开火窗口
-  和失败关闭。在当前实车测试中，`8 m` 距离下，一轮全目标激活耗时约为 `8–10 s`，操作手
-  无需持续手动修正瞄准点。
+- **自动火控系统：** 通过多因素决策实现全自动瞄准与自动开火。在 `8 m` 距离下激活能量机关，
+  完成十片目标激活的耗时为 `8–10 s`；操作手全程无需介入，降低了场上操作手的心理压力与
+  操作难度。
 
-- **预测诊断与异常重建：** 诊断模块按时间戳匹配预测相位与后续实测相位并输出误差；
-  大符滤波器检测短时间内的高频异常跳变，在数据受到冲撞、剧烈抖动或目标错配污染时，
-  使当前运动模型失效并重新拟合。
+- **拟合自诊断系统：** 由独立线程对拟合算法和预测算法进行高频自诊断。场上出现冲撞、开启
+  陀螺后严重抖动或位置大幅变化等情况时，系统可在 `0.1 s` 内完成识别，并在 `2 s` 内重新
+  恢复拟合。
 
 
 ## 2. 项目简介
@@ -159,6 +164,8 @@ flowchart LR
 
 ### 2.3 开源范围与仓库边界
 
+#### 2.3.1 接入边界
+
 本次算法开源的主体为 `src/core/algorithm/power_rune`。该目录实现了从符叶观测结果到
 火控指令的核心流程。为了使项目在没有相机、串口和下位机的条件下也能运行，仓库同时
 提供了网络推理、视频回放和模拟电控插件；这些内容属于复现支持，可以替换，不构成
@@ -218,6 +225,8 @@ flowchart LR
     class H core;
 ```
 
+<p align="center">图 2.1：演示链路、真实机器人链路与 power_rune 稳定接口边界</p>
+
 | 内容 | 位置 | 定位 |
 | --- | --- | --- |
 | 核心算法 | `src/core/algorithm/power_rune` | 本次算法开源主体 |
@@ -227,6 +236,7 @@ flowchart LR
 | 网络推理插件 | `src/app_plugin/detector` | 为演示提供关键点输入，可以替换 |
 | 视频回放插件 | `src/app_plugin/single_camera_manager` | 为演示提供无相机输入，可以替换 |
 | 模拟电控插件 | `src/app_plugin/receive_decoder` | 为演示提供模式和姿态数据，可以替换 |
+| 环境配置 | `scripts/setup_ubuntu22.sh` | 安装 Ubuntu 依赖并检查 CMake 与演示资源 |
 | 一键演示 | `run_demo.sh` | 构建并运行无硬件演示链路 |
 
 调用方只要能够按照 `power_rune::RuneInput` 提供同一采集时刻的图像、关键点、时间戳和
@@ -234,6 +244,40 @@ flowchart LR
 
 神经网络训练、特定相机驱动、真实串口协议以及下位机控制器不属于 `power_rune` 的
 算法范围。仓库中涉及第三方网络模型和部署实现的部分，遵循其各自的许可证与第三方声明。
+
+#### 2.3.2 软件架构与层级
+
+仓库按照“硬件与演示适配—稳定接口—核心编排—算法模块—基础设施”分层。上层插件只负责
+把相机、网络和电控数据适配为公共输入，核心算法不反向依赖具体设备；调用方也只通过
+`power_rune` 接口读写数据，不需要跨层访问算法内部状态。
+
+```mermaid
+flowchart TB
+    A["硬件与演示适配层 · src/app_plugin<br/><br/>视频回放 / 工业相机 · OpenVINO / 自有检测器<br/>模拟电控 / 真实串口 · PlannerControl / SendEncoder"]
+    B["稳定接口层 · power_rune/interface<br/><br/>RuneInput · process_power_rune()<br/>get_rune_data() · RuneSendData"]
+    C["核心编排层<br/><br/>PowerRuneProcessor<br/>单帧处理顺序 · 状态生命周期 · 失败提前返回"]
+    D["算法模块层 · power_rune/include + src<br/><br/>RuneObservationRefiner · PowerRunePlane<br/>PhaseMotionEstimator · RuneDecisionModule · PowerRuneDiagnostics"]
+    E["基础设施层 · src/core<br/><br/>Timestamp / TF Tree · Config Loader<br/>Threads / Context · ImgViz / Foxglove / glog"]
+
+    A -->|只通过公共数据结构接入| B
+    B -->|调用稳定入口| C
+    C -->|编排内部模块| D
+    A -. 调度与通信 .-> E
+    B -. 时间戳与坐标 .-> E
+    C -. 配置与状态支撑 .-> E
+    D -. 诊断与可视化 .-> E
+
+    classDef adapter fill:#F8FAFC,stroke:#64748B,color:#0F172A;
+    classDef api fill:#F5F3FF,stroke:#7C3AED,color:#4C1D95,stroke-width:1.5px;
+    classDef core fill:#EFF6FF,stroke:#2563EB,color:#172554,stroke-width:1.5px;
+    classDef infra fill:#ECFDF5,stroke:#059669,color:#064E3B;
+    class A adapter;
+    class B api;
+    class C,D core;
+    class E infra;
+```
+
+<p align="center">图 2.2：仓库软件分层、依赖方向与对外接口</p>
 
 ### 2.4 适用场景
 
@@ -247,6 +291,95 @@ flowchart LR
 仓库默认参数与演示素材及原机器人标定相关。部署到其他机器人前，需要重新确认相机
 内参与畸变、相机到云台的坐标变换、目标颜色、弹丸速度、系统延迟和机械补偿。内置
 视频演示用于验证软件链路，不替代真实机器人上的精度、命中率与长期稳定性测试。
+
+### 2.5 运行环境与依赖
+
+#### 2.5.1 已验证的软件环境
+
+当前仓库的一键回放演示已在下列环境完成构建与运行验证。表中“验证版本”用于说明本项目
+已实际使用过的组合；除已明确标注的项目外，不代表软件只能运行在该版本。
+
+| 项目 | 要求或用途 | 验证版本 |
+| --- | --- | --- |
+| 操作系统 | 64 位 Linux | Ubuntu 22.04.5 LTS（x86-64） |
+| C++ 工具链 | 支持 C++20 | GCC 11.4.0 |
+| CMake | `3.22+` | 3.22.1 |
+| OpenCV | `4.5.4+`；图像处理、标定、视频回放与 HighGUI | 4.6.0 |
+| OpenVINO | 五关键点网络推理；演示配置默认使用 `CPU` | 2024.4.0 |
+| Eigen3 / Ceres | 线性代数与非线性优化 | Eigen 3.4.0 / Ceres 2.2.0 |
+| Sophus | SE(3) 位姿表示；Ubuntu 22.04 无对应开发包，由脚本从源码安装 | 1.22.10 |
+| Boost / glog | 基础工具与日志 | Boost 1.74.0 / glog 0.4.0 |
+| H.264 解码后端 | 解码随仓 MP4；需要 OpenCV 可调用 FFmpeg 或 GStreamer | FFmpeg 4.4.2 |
+
+Foxglove SDK 已随 `src/core/utility/foxglove` 提供，不需要单独下载。完整工程在配置阶段会
+检查上述外部依赖；若只将 `power_rune` 接入其他框架，仍需满足其 CMake 文件中声明的
+OpenCV、Eigen3、Ceres、Sophus、Boost 与 glog 依赖。
+
+#### 2.5.2 硬件环境与复现边界
+
+| 场景 | 硬件要求 | 说明 |
+| --- | --- | --- |
+| 随仓无硬件演示 | 不需要相机、串口、下位机或独立显卡 | 已在 AMD Ryzen 9 7940HX、16 GB 内存上使用 OpenVINO CPU 推理验证；该配置不是最低硬件要求 |
+| 推理设备 | 默认使用 CPU；可按 OpenVINO 环境改为 `AUTO` 或 `GPU` | 修改 `src/app_plugin/detector/config/detect.json` 中的 `device` |
+| 演示视频 | 能够实时解码 H.264 的通用 x86-64 主机 | 随仓视频和默认相机标定均为 `1440×1080` |
+| 真实机器人 | 工业相机、云台姿态来源、通信链路与发射机构由接入方提供 | 相机型号和串口协议不受核心算法限定，但必须提供同一采集时刻的原图、关键点、时间戳和 TF Tree |
+
+默认内参与畸变、相机到云台的变换、弹速、延迟和机械补偿只适用于原演示配置。更换相机、
+分辨率或机器人后必须重新标定并验证参数，不能直接把上述开发机配置理解为精度或实时性保证。
+
+#### 2.5.3 一键配置、检查与运行
+
+仓库提供 Ubuntu 22.04 x86-64 环境配置脚本。脚本根据本项目的 CMake 与源码依赖安装以下内容：
+
+| 类别 | 安装内容 | 对应用途 |
+| --- | --- | --- |
+| 编译工具 | `build-essential`、`cmake`、`pkg-config` | GCC/G++、CMake 配置与 C++20 构建 |
+| 图像与视频 | `libopencv-dev`、`ffmpeg` | 图像处理、标定、HighGUI、视频回放与 H.264 解码 |
+| 数学与优化 | `libeigen3-dev`、`libceres-dev`、`libgflags-dev` | 矩阵计算、位姿与弹道非线性优化 |
+| 基础库 | `libboost-all-dev`、`libgoogle-glog-dev` | CMake 声明的 Boost 依赖与运行日志 |
+| 网络推理 | OpenVINO `2024.4.0` C++ 开发包、CPU 与 AUTO 插件 | 加载 ONNX 模型并执行五关键点推理 |
+| 位姿库 | Sophus `1.22.10` | `TFTree` 和 SE(3) 坐标变换 |
+
+首次配置环境：
+
+```bash
+./scripts/setup_ubuntu22.sh
+```
+
+脚本会在需要修改系统环境时调用 `sudo`，使用签名密钥配置 OpenVINO 官方 APT 源，并从
+Sophus `1.22.10` 发布标签构建安装 Sophus。安装完成后，它还会检查随仓模型、视频和配置文件，
+在临时目录中执行一次干净的 CMake 配置，并实际解码一帧 H.264 演示视频。脚本可以重复执行，
+已经满足版本要求的 Sophus 不会再次构建。
+
+如果依赖已经安装，只检查当前环境而不修改系统：
+
+```bash
+./scripts/setup_ubuntu22.sh --check
+```
+
+环境检查通过后启动演示：
+
+```bash
+# 有桌面环境：显示 OpenCV 调试窗口
+./run_demo.sh
+
+# 无桌面环境或 SSH 会话：不创建 GUI 窗口
+./run_demo.sh --headless
+```
+
+也可以手动执行 Release 构建：
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel 4
+./output/app
+```
+
+配置脚本只覆盖随仓无硬件演示所需的软件环境，不会安装工业相机 SDK、串口规则或 Intel GPU
+驱动。默认 CPU 推理不要求独立显卡；若把 `device` 改为 `GPU`，还需按照 OpenVINO 文档为具体
+硬件安装对应的 GPU 运行时。OpenVINO 软件包安装方式见
+[OpenVINO 2024 APT 安装文档](https://docs.openvino.ai/2024/get-started/install-openvino/install-openvino-apt.html)，
+Sophus 源码与版本标签见 [Sophus 官方仓库](https://github.com/strasdat/Sophus/tree/1.22.10)。
 
 ## 3. 效果展示
 
@@ -1169,7 +1302,12 @@ power_rune::RuneSendData read_rune_command(bool is_big_rune)
 更完整的独立接入说明见
 [`power_rune/docs/README.md`](./src/core/algorithm/power_rune/docs/README.md)。
 
-## 7. 参考资料与引用
+## 7. 未来计划
+
+- 下赛季预计会使用实例分割网络，直接获取轮廓数据，增强对不同亮度和光照适应性。
+- 本赛季已尝试在姿态解算部分引入时序信息，但是实际表现没有出现明显的提升。本赛季的做法是为符平面法向量引入一个演化方程来约束法向量的变化具有随时间缓慢连续变化的趋势。实际测试发现虽然解算的平面会稳定，但是会因为约束超参的设计不当导致优化速度变慢，反而增加了全链路延迟。下赛季会探索更优秀的算法来同时兼顾速度与精度。
+
+## 8. 参考资料与引用
 
 - 华南理工大学 华南虎战队：[《RM2025 能量机关自瞄算法开源：神符多角点识别方案》](https://bbs.robomaster.com/article/803708?source=4)
 - 哈尔滨工业大学 I Hiter 战队：[《一种 RM2024 能量机关的识别与角度拟合方法》](https://bbs.robomaster.com/article/371982?source=4)
@@ -1177,14 +1315,14 @@ power_rune::RuneSendData read_rune_command(bool is_big_rune)
 - 深圳大学 RobotPilots 战队：[《RM2026 能量机关五点识别模型》](https://bbs.robomaster.com/article/1939101?source=4)
 - 深圳大学 RobotPilots 战队：[《RM2026 自瞄算法框架开源》](https://bbs.robomaster.com/article/1939253?source=8)
 
-## 8. 许可证与第三方声明
+## 9. 许可证与第三方声明
 
 项目自有代码采用 [MIT License](./LICENSE)。随仓提供的五关键点模型与相关部署适配遵循
 其原始许可证，具体来源和再分发说明见
 [`THIRD_PARTY_NOTICE.md`](./src/app_plugin/detector/THIRD_PARTY_NOTICE.md)。使用或二次分发
 本项目时，请同时遵守 RoboMaster 赛事规则及各第三方组件的许可证。
 
-## 9. 联系与交流
+## 10. 联系与交流
 
 - 联系人：吴宇盟
 - 微信：`18898594478`
