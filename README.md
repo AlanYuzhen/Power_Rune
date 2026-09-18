@@ -1,8 +1,4 @@
-# RP-26Rune｜RoboMaster 能量机关算法全开源
-
-`RP-26Rune` 是深圳大学 RobotPilots 战队 2026 赛季能量机关算法的完整公开实现，覆盖
-观测精修、三维解算、运动预测、弹道求解与自动火控，并针对 RoboMaster 赛场中的遮挡、
-目标切换、机体运动和链路延迟进行了专项设计。
+# RP-26Rune｜RoboMaster 能量机关算法全开
 
 <p align="center">
   <a href="#1-核心亮点">核心亮点</a> ·
