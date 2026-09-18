@@ -57,8 +57,8 @@ require_supported_host()
 
     # shellcheck disable=SC1091
     source /etc/os-release
-    [[ "${ID:-}" == "ubuntu" && "${VERSION_ID:-}" == "22.04" ]] ||
-        die "this script supports Ubuntu 22.04 only (detected: ${PRETTY_NAME:-unknown})"
+    [[ "${ID:-}" == "ubuntu" && ("${VERSION_ID:-}" == "22.04" || "${VERSION_ID:-}" == "24.04") ]] ||
+        die "this script supports Ubuntu 22.04 and 24.04 only (detected: ${PRETTY_NAME:-unknown})"
     [[ "$(dpkg --print-architecture)" == "amd64" ]] ||
         die "this script currently supports x86-64/amd64 only"
 }
